@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#0F1623" />
+  <meta name="description" content="Sudoku online gratis — Fácil, Medio, Difícil, Experto. Sudoku del día. Sin registro." />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Sudoku" />
+  <meta property="og:description" content="Juega Sudoku online gratis. Generación infinita de puzzles." />
+  <meta property="og:type" content="website" />
+
+  <title>Sudoku</title>
+
+  <!-- ▼ DESCOMENTA cuando tengas tu Publisher ID de AdSense ▼
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+  ▲ ─────────────────────────────────────────────────────── ▲ -->
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ══ App ══════════════════════════════════════════════════ -->
+  <main class="app" role="main">
+
+    <!-- ── Header ──────────────────────────────────────────── -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-title">Sudoku</span>
+        <span class="logo-dot" aria-hidden="true"></span>
+      </div>
+      <div class="lang-selector" role="group" aria-label="Idioma / Language">
+        <button class="lang-btn" data-lang="es" aria-label="Español">ES</button>
+        <button class="lang-btn" data-lang="en" aria-label="English">EN</button>
+        <button class="lang-btn" data-lang="pt" aria-label="Português">PT</button>
+      </div>
+    </header>
+
+    <!-- ── Stats bar ────────────────────────────────────────── -->
+    <div class="stats-bar" role="status" aria-live="polite">
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="time">Tiempo</span>
+        <span class="stat-value" id="timer">00:00</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="mistakes">Errores</span>
+        <span class="stat-value" id="mistakes-count">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="hintsLeft">Pistas</span>
+        <span class="stat-value" id="hints-left">3</span>
+      </div>
+    </div>
+
+    <!-- ── Difficulty selector ──────────────────────────────── -->
+    <div class="mode-row">
+      <div class="diff-selector" role="group" aria-label="Dificultad">
+        <button class="diff-btn" data-diff="easy"   data-i18n="easy">Fácil</button>
+        <button class="diff-btn active" data-diff="medium" data-i18n="medium">Medio</button>
+        <button class="diff-btn" data-diff="hard"   data-i18n="hard">Difícil</button>
+        <button class="diff-btn" data-diff="expert" data-i18n="expert">Experto</button>
+      </div>
+      <button class="daily-btn" id="btn-daily" aria-label="Sudoku del día">
+        <span class="daily-icon">☀️</span>
+        <span data-i18n="daily">Diario</span>
+      </button>
+    </div>
+
+    <!-- ── Current mode badge ────────────────────────────────── -->
+    <div class="current-mode">
+      <span class="diff-badge" id="diff-label">Medio</span>
+      <span class="daily-active-label" id="daily-label">☀️ <span data-i18n="daily">Diario</span></span>
+    </div>
+
+    <!-- ── Board ─────────────────────────────────────────────── -->
+    <div class="board-wrapper">
+      <div id="sudoku-board" role="grid" aria-label="Tablero de Sudoku"></div>
+      <div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <span class="loading-text" data-i18n="loading">Generando puzzle...</span>
+      </div>
+    </div>
+
+    <!-- ── Action controls ──────────────────────────────────── -->
+    <div class="controls" role="toolbar" aria-label="Controles">
+      <button class="ctrl-btn" id="btn-undo" aria-label="Deshacer">
+        <span class="btn-icon">↩</span>
+        <span data-i18n="undo">Deshacer</span>
+      </button>
+      <button class="ctrl-btn" id="btn-erase" aria-label="Borrar">
+        <span class="btn-icon">⌫</span>
+        <span data-i18n="erase">Borrar</span>
+      </button>
+      <button class="ctrl-btn" id="btn-notes" aria-label="Notas" aria-pressed="false">
+        <span class="btn-icon">✏️</span>
+        <span data-i18n="notes">Notas</span>
+      </button>
+      <button class="ctrl-btn" id="btn-hint" aria-label="Pista">
+        <span class="btn-icon">💡</span>
+        <span data-i18n="hint">Pista</span>
+      </button>
+      <button class="ctrl-btn" id="btn-check" aria-label="Comprobar">
+        <span class="btn-icon">✓</span>
+        <span data-i18n="check">Ver</span>
+      </button>
+    </div>
+
+    <!-- ── Numpad ────────────────────────────────────────────── -->
+    <div id="numpad" role="group" aria-label="Números">
+      <button class="num-btn" data-num="1" aria-label="1">1</button>
+      <button class="num-btn" data-num="2" aria-label="2">2</button>
+      <button class="num-btn" data-num="3" aria-label="3">3</button>
+      <button class="num-btn" data-num="4" aria-label="4">4</button>
+      <button class="num-btn" data-num="5" aria-label="5">5</button>
+      <button class="num-btn" data-num="6" aria-label="6">6</button>
+      <button class="num-btn" data-num="7" aria-label="7">7</button>
+      <button class="num-btn" data-num="8" aria-label="8">8</button>
+      <button class="num-btn" data-num="9" aria-label="9">9</button>
+    </div>
+
+    <!-- ── Bottom actions ────────────────────────────────────── -->
+    <div class="bottom-actions">
+      <button class="ctrl-btn btn-secondary" id="btn-restart"
+        aria-label="Reiniciar partida">
+        <span class="btn-icon">↺</span>
+        <span data-i18n="restart">Reiniciar</span>
+      </button>
+      <button class="btn-new-level" id="btn-new-level"
+        aria-label="Nuevo nivel">
+        <span class="new-level-icon">▶</span>
+        <span data-i18n="newLevel">Nuevo nivel</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ══ Toast notification ══════════════════════════════════ -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <!-- ══ Modal ═══════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box">
+      <button class="modal-close-btn" id="modal-close" aria-label="Cerrar">×</button>
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ══ Ad Banner ═══════════════════════════════════════════
+       INSTRUCCIONES PARA ACTIVAR EL ANUNCIO:
+
+       1. Ve a https://adsense.google.com y crea una cuenta
+          (usa la misma cuenta de Google que usas con AdMob)
+       2. Añade tu sitio web (ej: tuusuario.github.io/sudoku)
+       3. Google te dará un Publisher ID con formato: ca-pub-1234567890123456
+       4. Crea un anuncio de tipo "Banner horizontal" y copia el Ad Slot ID
+       5. Descomenta el bloque <ins> de abajo y reemplaza:
+            ca-pub-XXXXXXXXXXXXXXXXXX  →  tu Publisher ID
+            XXXXXXXXXX                →  tu Ad Slot ID
+       6. Descomenta también el <script> del <head>
+
+       NOTA: AdSense y AdMob son el mismo Google. Puedes vincular
+       las cuentas desde la consola de AdSense en Cuentas > Acceso y autorización.
+  ═══════════════════════════════════════════════════════════ -->
+  <aside class="ad-banner" aria-label="Publicidad">
+    <div class="ad-inner">
+
+      <!-- ▼▼▼ DESCOMENTA ESTO cuando tengas tu ID de AdSense ▼▼▼
+
+      <ins class="adsbygoogle"
+           style="display:block; width:100%; height:60px;"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXXXX"
+           data-ad-slot="XXXXXXXXXX"
+           data-ad-format="horizontal"
+           data-full-width-responsive="true">
+      </ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+
+      ▲▲▲ FIN DEL BLOQUE DE ANUNCIO ▲▲▲ -->
+
+      <!-- Placeholder visible mientras no hay anuncio activo
+           (puedes eliminar este div cuando actives AdSense) -->
+      <div class="ad-placeholder">
+        <span>Publicidad</span>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ══ Scripts ══════════════════════════════════════════════ -->
+  <script src="js/i18n.js"></script>
+  <script src="js/sudoku-engine.js"></script>
+  <script src="js/game.js"></script>
+
+</body>
+</html>
