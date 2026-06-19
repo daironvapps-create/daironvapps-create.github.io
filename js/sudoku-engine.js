@@ -1,6 +1,7 @@
 /**
- * Sudoku Engine — Infinite board generation & validation
- * Supports: Easy, Medium, Hard, Expert
+ * Sudoku Engine — Generación y validación de tableros
+ * Soporta: Fácil, Medio, Difícil, Experto
+ * Este archivo es puro (sin DOM) para poder cargarse también dentro de un Web Worker.
  */
 
 const SudokuEngine = (() => {
@@ -26,11 +27,8 @@ const SudokuEngine = (() => {
   // ── Validity check ────────────────────────────────────────────────────────
 
   function isValid(grid, row, col, num) {
-    // Row
     if (grid[row].includes(num)) return false;
-    // Col
     for (let r = 0; r < 9; r++) if (grid[r][col] === num) return false;
-    // Box
     const br = Math.floor(row / 3) * 3;
     const bc = Math.floor(col / 3) * 3;
     for (let r = br; r < br + 3; r++)
@@ -39,57 +37,63 @@ const SudokuEngine = (() => {
     return true;
   }
 
-  // ── Backtracking solver ───────────────────────────────────────────────────
+  // Devuelve los candidatos válidos (1-9) para una celda
+  function candidatesFor(grid, row, col) {
+    const used = new Set();
+    for (let i = 0; i < 9; i++) {
+      used.add(grid[row][i]);
+      used.add(grid[i][col]);
+    }
+    const br = Math.floor(row / 3) * 3;
+    const bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++)
+      for (let c = bc; c < bc + 3; c++)
+        used.add(grid[r][c]);
 
-  function solve(grid, limit = 2) {
-    let solutions = 0;
+    const out = [];
+    for (let n = 1; n <= 9; n++) if (!used.has(n)) out.push(n);
+    return out;
+  }
 
-    function bt() {
-      for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-          if (grid[r][c] === 0) {
-            const nums = shuffle([1,2,3,4,5,6,7,8,9]);
-            for (const n of nums) {
-              if (isValid(grid, r, c, n)) {
-                grid[r][c] = n;
-                bt();
-                if (solutions >= limit) return;
-                grid[r][c] = 0;
-              }
-            }
-            return;
+  // Encuentra la celda vacía con MENOS candidatos posibles (heurística MRV).
+  // Reduce drásticamente el factor de ramificación del backtracking —
+  // es la diferencia entre generar en milisegundos o en varios segundos.
+  function findMostConstrainedCell(grid) {
+    let best = null;
+    let bestCandidates = null;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (grid[r][c] === 0) {
+          const cands = candidatesFor(grid, r, c);
+          if (cands.length === 0) return { row: r, col: c, candidates: cands }; // callejón sin salida
+          if (!best || cands.length < bestCandidates.length) {
+            best = { row: r, col: c };
+            bestCandidates = cands;
+            if (cands.length === 1) return { ...best, candidates: bestCandidates };
           }
         }
       }
-      solutions++;
     }
-
-    bt();
-    return solutions;
+    return best ? { ...best, candidates: bestCandidates } : null;
   }
 
-  // Count solutions without shuffling (faster)
+  // Cuenta soluciones usando MRV — mucho más rápido que recorrer en orden fijo,
+  // especialmente en tableros casi vacíos (dificultad experto).
   function countSolutions(grid, limit = 2) {
     const g = cloneGrid(grid);
     let count = 0;
 
     function bt() {
-      for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-          if (g[r][c] === 0) {
-            for (let n = 1; n <= 9; n++) {
-              if (isValid(g, r, c, n)) {
-                g[r][c] = n;
-                bt();
-                if (count >= limit) return;
-                g[r][c] = 0;
-              }
-            }
-            return;
-          }
-        }
+      if (count >= limit) return;
+      const cell = findMostConstrainedCell(g);
+      if (!cell) { count++; return; }
+
+      for (const n of cell.candidates) {
+        g[cell.row][cell.col] = n;
+        bt();
+        if (count >= limit) { g[cell.row][cell.col] = 0; return; }
+        g[cell.row][cell.col] = 0;
       }
-      count++;
     }
 
     bt();
@@ -123,10 +127,10 @@ const SudokuEngine = (() => {
   // ── Difficulty settings ───────────────────────────────────────────────────
 
   const DIFFICULTY = {
-    easy:   { clues: 46 },   // 81-46 = 35 holes
-    medium: { clues: 36 },   // 45 holes
-    hard:   { clues: 28 },   // 53 holes
-    expert: { clues: 22 },   // 59 holes
+    easy:   { clues: 46 },
+    medium: { clues: 36 },
+    hard:   { clues: 28 },
+    expert: { clues: 24 }, // 22 era demasiado lento sin heurísticas; 24 sigue siendo un buen reto
   };
 
   // ── Puzzle generator ──────────────────────────────────────────────────────
@@ -135,12 +139,19 @@ const SudokuEngine = (() => {
     const solution = generateFullBoard();
     const puzzle = cloneGrid(solution);
 
-    const holes = 81 - DIFFICULTY[difficulty].clues;
+    const holes = 81 - (DIFFICULTY[difficulty] || DIFFICULTY.medium).clues;
     const cells = shuffle(Array.from({ length: 81 }, (_, i) => i));
     let removed = 0;
 
+    // Presupuesto de tiempo de seguridad: si por mala suerte el azar nos lleva
+    // a un camino lento, cortamos y devolvemos el puzzle tal cual esté
+    // (sigue teniendo solución única, solo con algunas pistas de más).
+    const deadline = Date.now() + 4000;
+
     for (const idx of cells) {
       if (removed >= holes) break;
+      if (Date.now() > deadline) break;
+
       const r = Math.floor(idx / 9);
       const c = idx % 9;
       const backup = puzzle[r][c];
@@ -167,7 +178,6 @@ const SudokuEngine = (() => {
   }
 
   function generateDailyPuzzle(dateStr) {
-    // dateStr: "YYYY-MM-DD"
     const seed = dateStr.split('-').reduce((a, b) => a * 100 + parseInt(b), 0);
     const rng = seededRandom(seed);
 
@@ -200,13 +210,14 @@ const SudokuEngine = (() => {
     fill();
     const solution = cloneGrid(grid);
 
-    // Remove cells with seeded positions
     const holes = 81 - DIFFICULTY['medium'].clues;
     const cells = shuffleWithRng(Array.from({ length: 81 }, (_, i) => i));
     let removed = 0;
+    const deadline = Date.now() + 4000;
 
     for (const idx of cells) {
       if (removed >= holes) break;
+      if (Date.now() > deadline) break;
       const row = Math.floor(idx / 9);
       const col = idx % 9;
       const backup = grid[row][col];
@@ -254,6 +265,14 @@ const SudokuEngine = (() => {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  return { generatePuzzle, generateDailyPuzzle, getHint, getErrors, isSolved, isValid };
+  return {
+    generatePuzzle, generateDailyPuzzle, getHint, getErrors, isSolved, isValid, DIFFICULTY
+  };
 
 })();
+
+// Si se carga dentro de un Web Worker, exponer SudokuEngine globalmente
+// (en un worker `self` es el ámbito global, no `window`)
+if (typeof self !== 'undefined' && typeof window === 'undefined') {
+  self.SudokuEngine = SudokuEngine;
+}
