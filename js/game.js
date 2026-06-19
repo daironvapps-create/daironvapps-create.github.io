@@ -9,9 +9,9 @@ const Game = (() => {
   let state = {
     puzzle: null,
     solution: null,
-    board: null,          // current player board (numbers)
-    notes: null,          // 9×9 array of Set()
-    given: null,          // boolean 9×9 — original clues
+    board: null,          // tablero actual del jugador (números)
+    notes: null,          // matriz 9×9 de Set()
+    given: null,          // booleano 9×9 — pistas originales
     selected: null,       // {row, col}
     difficulty: 'medium',
     isDaily: false,
@@ -20,7 +20,7 @@ const Game = (() => {
     mistakes: 0,
     maxMistakes: 3,
     notesMode: false,
-    history: [],          // for undo
+    history: [],          // para deshacer: {board, notes, mistakes, hintsUsed}
     timerInterval: null,
     elapsedSeconds: 0,
     started: false,
@@ -55,6 +55,55 @@ const Game = (() => {
     el.dailyLabel  = document.getElementById('daily-label');
     el.diffLabel   = document.getElementById('diff-label');
     el.btnNewLevel = document.getElementById('btn-new-level');
+    el.btnTheme    = document.getElementById('btn-theme');
+  }
+
+  // ── Worker (generación en segundo plano) ────────────────────────────────────
+
+  let worker = null;
+  let workerReqId = 0;
+  const pendingRequests = new Map();
+
+  function initWorker() {
+    if (!('Worker' in window)) return; // navegador sin soporte: usaremos fallback síncrono
+    try {
+      worker = new Worker('js/sudoku-worker.js');
+      worker.onmessage = (e) => {
+        const { id, ok, result, error } = e.data;
+        const cb = pendingRequests.get(id);
+        if (!cb) return;
+        pendingRequests.delete(id);
+        if (ok) cb.resolve(result);
+        else cb.reject(new Error(error));
+      };
+      worker.onerror = () => {
+        // El worker falló por completo (p.ej. bloqueado por CSP en file://) — desactivarlo,
+        // a partir de aquí usaremos el motor en el hilo principal.
+        worker = null;
+      };
+    } catch (e) {
+      worker = null;
+    }
+  }
+
+  function generateInBackground(type, payload) {
+    return new Promise((resolve, reject) => {
+      if (worker) {
+        const id = ++workerReqId;
+        pendingRequests.set(id, { resolve, reject });
+        worker.postMessage({ id, type, ...payload });
+      } else {
+        // Fallback: generar en el hilo principal (puede tardar un instante en Experto)
+        try {
+          const result = type === 'daily'
+            ? SudokuEngine.generateDailyPuzzle(payload.dateStr)
+            : SudokuEngine.generatePuzzle(payload.difficulty);
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      }
+    });
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -95,13 +144,13 @@ const Game = (() => {
         cell.className = 'cell';
         cell.dataset.row = r;
         cell.dataset.col = c;
+        cell.setAttribute('role', 'gridcell');
+        cell.tabIndex = -1;
 
-        // Box shading
         const boxR = Math.floor(r / 3);
         const boxC = Math.floor(c / 3);
         if ((boxR + boxC) % 2 === 0) cell.classList.add('cell-box-alt');
 
-        // Given cell
         if (state.given[r][c]) {
           cell.classList.add('given');
           cell.textContent = state.board[r][c];
@@ -148,6 +197,22 @@ const Game = (() => {
       }
     });
     highlightRelated();
+    updateNumpadState();
+  }
+
+  // ── Numpad: deshabilitar números ya completados (9/9 en el tablero) ────────
+
+  function updateNumpadState() {
+    if (!el.numpad) return;
+    const counts = new Array(10).fill(0);
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (state.board[r][c] !== 0) counts[state.board[r][c]]++;
+
+    el.numpad.querySelectorAll('.num-btn').forEach(btn => {
+      const n = parseInt(btn.dataset.num, 10);
+      btn.classList.toggle('exhausted', counts[n] >= 9);
+    });
   }
 
   // ── Selection & highlighting ──────────────────────────────────────────────
@@ -182,19 +247,31 @@ const Game = (() => {
         if (isSelected) cell.classList.add('selected');
         else if (isSameRow || isSameCol || isSameBox) cell.classList.add('related');
 
-        // Highlight same numbers
         const selVal = state.board[sel.row][sel.col];
         if (selVal !== 0 && state.board[r][c] === selVal) {
           cell.classList.add('same-number');
         }
       }
 
-      // Show errors
       if (!state.given[r][c] && state.board[r][c] !== 0 &&
           state.board[r][c] !== state.solution[r][c]) {
         cell.classList.add('error');
       }
     });
+  }
+
+  // ── Limpiar un número de las notas relacionadas (fila/columna/caja) ────────
+
+  function clearRelatedNotes(row, col, num) {
+    for (let i = 0; i < 9; i++) {
+      state.notes[row][i].delete(num);
+      state.notes[i][col].delete(num);
+    }
+    const br = Math.floor(row / 3) * 3;
+    const bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++)
+      for (let c = bc; c < bc + 3; c++)
+        state.notes[r][c].delete(num);
   }
 
   // ── Input handling ────────────────────────────────────────────────────────
@@ -210,7 +287,7 @@ const Game = (() => {
       const noteSet = state.notes[row][col];
       if (noteSet.has(num)) noteSet.delete(num);
       else noteSet.add(num);
-      state.board[row][col] = 0; // clear number if adding note
+      state.board[row][col] = 0;
     } else {
       pushHistory();
       state.notes[row][col].clear();
@@ -220,22 +297,14 @@ const Game = (() => {
         state.mistakes++;
         el.mistakes.textContent = state.mistakes;
         if (state.mistakes >= state.maxMistakes) {
+          refreshAllCells();
           endGame(false);
           return;
         }
       }
 
       if (num !== 0) {
-        // Remove this number from notes in same row/col/box
-        for (let i = 0; i < 9; i++) {
-          state.notes[row][i].delete(num);
-          state.notes[i][col].delete(num);
-        }
-        const br = Math.floor(row / 3) * 3;
-        const bc = Math.floor(col / 3) * 3;
-        for (let r = br; r < br + 3; r++)
-          for (let c = bc; c < bc + 3; c++)
-            state.notes[r][c].delete(num);
+        clearRelatedNotes(row, col, num);
       }
     }
 
@@ -262,15 +331,27 @@ const Game = (() => {
     state.history.push({
       board: state.board.map(r => [...r]),
       notes: state.notes.map(r => r.map(s => new Set(s))),
+      mistakes: state.mistakes,
+      hintsUsed: state.hintsUsed,
     });
     if (state.history.length > 50) state.history.shift();
   }
 
   function undo() {
-    if (state.history.length === 0) return;
+    if (state.history.length === 0) {
+      showToast(i18n.t('noUndo'), 'info');
+      return;
+    }
     const prev = state.history.pop();
     state.board = prev.board;
     state.notes = prev.notes;
+    state.mistakes = prev.mistakes;
+    state.hintsUsed = prev.hintsUsed;
+
+    el.mistakes.textContent = state.mistakes;
+    el.hintsLeft.textContent = state.maxHints - state.hintsUsed;
+    el.btnHint.disabled = state.hintsUsed >= state.maxHints;
+
     refreshAllCells();
   }
 
@@ -283,10 +364,19 @@ const Game = (() => {
     pushHistory();
     state.hintsUsed++;
     el.hintsLeft.textContent = state.maxHints - state.hintsUsed;
+
     state.board[h.row][h.col] = h.value;
     state.notes[h.row][h.col].clear();
+    clearRelatedNotes(h.row, h.col, h.value); // 🔧 también limpia notas de fila/col/caja
     state.selected = { row: h.row, col: h.col };
+
     refreshAllCells();
+
+    const cellEl = el.board.querySelector(`.cell[data-row="${h.row}"][data-col="${h.col}"]`);
+    if (cellEl) {
+      cellEl.classList.add('hint-reveal');
+      setTimeout(() => cellEl.classList.remove('hint-reveal'), 800);
+    }
 
     if (state.hintsUsed >= state.maxHints) {
       el.btnHint.disabled = true;
@@ -314,6 +404,7 @@ const Game = (() => {
   function toggleNotes() {
     state.notesMode = !state.notesMode;
     el.btnNotes.classList.toggle('active', state.notesMode);
+    el.btnNotes.setAttribute('aria-pressed', String(state.notesMode));
   }
 
   // ── End game ──────────────────────────────────────────────────────────────
@@ -322,11 +413,10 @@ const Game = (() => {
     stopTimer();
     state.finished = true;
 
-    if (state.isDaily) {
+    if (state.isDaily && won) {
       const today = getTodayStr();
-      if (won) {
-        localStorage.setItem('sudoku_daily_' + today, formatTime(state.elapsedSeconds));
-      }
+      i18n.safeSet('sudoku_daily_' + today, formatTime(state.elapsedSeconds));
+      updateDailyButtonState();
     }
 
     setTimeout(() => {
@@ -353,7 +443,7 @@ const Game = (() => {
     }, 400);
   }
 
-  // ── New Level (with flip animation) ──────────────────────────────────────
+  // ── New Level (con animación de flip) ──────────────────────────────────────
 
   function newLevel() {
     if (el.btnNewLevel.classList.contains('loading')) return;
@@ -364,63 +454,87 @@ const Game = (() => {
 
     setTimeout(() => {
       wrapper.classList.remove('flip-out');
-      newGame(state.difficulty, false);
-      // flip-in triggers after newGame renders
-      setTimeout(() => {
+      newGame(state.difficulty, false).finally(() => {
         wrapper.classList.add('flip-in');
         setTimeout(() => wrapper.classList.remove('flip-in'), 300);
         el.btnNewLevel.classList.remove('loading');
-      }, 80);
+      });
     }, 180);
   }
 
   // ── New game ──────────────────────────────────────────────────────────────
 
-  function newGame(difficulty = 'medium', isDaily = false) {
+  function setControlsEnabled(enabled) {
+    el.diffBtns.forEach(b => b.disabled = !enabled);
+    el.btnDaily.disabled = !enabled;
+    el.btnNewLevel.classList.toggle('loading', !enabled);
+  }
+
+  function newGame(difficulty = 'medium', isDaily = false, dateStr = null) {
     showLoading(true);
+    setControlsEnabled(false);
+    stopTimer();
 
-    // Defer to next tick so loading overlay renders
-    setTimeout(() => {
-      stopTimer();
+    const genPromise = isDaily
+      ? generateInBackground('daily', { dateStr: dateStr || getTodayStr() })
+      : generateInBackground('puzzle', { difficulty });
 
-      const result = isDaily
-        ? SudokuEngine.generateDailyPuzzle(getTodayStr())
-        : SudokuEngine.generatePuzzle(difficulty);
+    return genPromise
+      .then(result => {
+        state.puzzle     = result.puzzle;
+        state.solution   = result.solution;
+        state.board      = result.puzzle.map(r => [...r]);
+        state.notes      = Array.from({ length: 9 }, () =>
+                             Array.from({ length: 9 }, () => new Set()));
+        state.given      = result.puzzle.map(r => r.map(v => v !== 0));
+        state.selected   = null;
+        state.difficulty = difficulty;
+        state.isDaily    = isDaily;
+        state.hintsUsed  = 0;
+        state.mistakes   = 0;
+        state.notesMode  = false;
+        state.history    = [];
+        state.elapsedSeconds = 0;
+        state.started    = false;
+        state.finished   = false;
 
-      state.puzzle     = result.puzzle;
-      state.solution   = result.solution;
-      state.board      = result.puzzle.map(r => [...r]);
-      state.notes      = Array.from({ length: 9 }, () =>
-                           Array.from({ length: 9 }, () => new Set()));
-      state.given      = result.puzzle.map(r => r.map(v => v !== 0));
-      state.selected   = null;
-      state.difficulty = difficulty;
-      state.isDaily    = isDaily;
-      state.hintsUsed  = 0;
-      state.mistakes   = 0;
-      state.notesMode  = false;
-      state.history    = [];
-      state.elapsedSeconds = 0;
-      state.started    = false;
-      state.finished   = false;
+        el.hintsLeft.textContent = state.maxHints;
+        el.mistakes.textContent  = 0;
+        el.btnHint.disabled      = false;
+        el.btnNotes.classList.remove('active');
+        el.btnNotes.setAttribute('aria-pressed', 'false');
+        updateTimerDisplay();
 
-      el.hintsLeft.textContent = state.maxHints;
-      el.mistakes.textContent  = 0;
-      el.btnHint.disabled      = false;
-      el.btnNotes.classList.remove('active');
-      updateTimerDisplay();
+        el.diffBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.diff === difficulty);
+        });
 
-      // Update difficulty buttons
-      el.diffBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.diff === difficulty);
+        el.dailyLabel.style.display = isDaily ? 'inline-flex' : 'none';
+        el.diffLabel.textContent = isDaily ? i18n.t('daily') : i18n.t(difficulty);
+
+        renderBoard();
+        updateNumpadState();
+      })
+      .catch(() => {
+        showToast(i18n.t('genericError'), 'error');
+        // Reintenta una vez de forma síncrona en el hilo principal como último recurso
+        const fallback = isDaily
+          ? SudokuEngine.generateDailyPuzzle(dateStr || getTodayStr())
+          : SudokuEngine.generatePuzzle(difficulty);
+        state.puzzle = fallback.puzzle;
+        state.solution = fallback.solution;
+        state.board = fallback.puzzle.map(r => [...r]);
+        state.notes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+        state.given = fallback.puzzle.map(r => r.map(v => v !== 0));
+        state.difficulty = difficulty;
+        state.isDaily = isDaily;
+        renderBoard();
+        updateNumpadState();
+      })
+      .finally(() => {
+        showLoading(false);
+        setControlsEnabled(true);
       });
-
-      el.dailyLabel.style.display = isDaily ? 'inline-flex' : 'none';
-      el.diffLabel.textContent = isDaily ? i18n.t('daily') : i18n.t(difficulty);
-
-      renderBoard();
-      showLoading(false);
-    }, 50);
   }
 
   // ── Daily ─────────────────────────────────────────────────────────────────
@@ -430,14 +544,20 @@ const Game = (() => {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
+  function updateDailyButtonState() {
+    const today = getTodayStr();
+    const saved = i18n.safeGet('sudoku_daily_' + today);
+    el.btnDaily.classList.toggle('solved', !!saved);
+  }
+
   function playDaily() {
     const today = getTodayStr();
-    const saved = localStorage.getItem('sudoku_daily_' + today);
+    const saved = i18n.safeGet('sudoku_daily_' + today);
     if (saved) {
       showToast(`${i18n.t('completedIn')} ${saved} ✓`, 'success');
-      return;
+      // Igual cargamos el tablero del día para que pueda repasarlo si quiere
     }
-    newGame('medium', true);
+    newGame('medium', true, today);
   }
 
   // ── Toast ─────────────────────────────────────────────────────────────────
@@ -470,7 +590,7 @@ const Game = (() => {
     const key = e.key;
 
     if (/^[1-9]$/.test(key)) {
-      inputNumber(parseInt(key));
+      inputNumber(parseInt(key, 10));
       return;
     }
 
@@ -495,71 +615,99 @@ const Game = (() => {
       const nr = Math.min(8, Math.max(0, row + dr));
       const nc = Math.min(8, Math.max(0, col + dc));
       state.selected = { row: nr, col: nc };
+      if (!state.started) { state.started = true; startTimer(); }
       highlightRelated();
     }
+  }
+
+  // ── Theme (claro / oscuro) ───────────────────────────────────────────────
+
+  function getPreferredTheme() {
+    const saved = i18n.safeGet('sudoku_theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    // Si no hay preferencia guardada, respetar el sistema operativo del usuario
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light';
+    }
+    return 'dark';
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (el.btnTheme) {
+      el.btnTheme.textContent = theme === 'light' ? '☀️' : '🌙';
+      el.btnTheme.setAttribute('aria-label', theme === 'light' ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro');
+    }
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#F4F5FA' : '#0F1623');
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const next = current === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    i18n.safeSet('sudoku_theme', next);
   }
 
   // ── i18n refresh ──────────────────────────────────────────────────────────
 
   function applyTranslations() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      el.textContent = i18n.t(el.dataset.i18n);
+    document.querySelectorAll('[data-i18n]').forEach(node => {
+      node.textContent = i18n.t(node.dataset.i18n);
     });
     el.langBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.lang === i18n.getLang());
     });
+    document.documentElement.lang = i18n.getLang();
+    el.board.setAttribute('aria-label', i18n.t('board'));
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
   function init() {
     initRefs();
+    initWorker();
+    applyTheme(getPreferredTheme());
     applyTranslations();
+    updateDailyButtonState();
 
-    // Difficulty buttons
+    el.btnTheme.addEventListener('click', toggleTheme);
+
     el.diffBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         newGame(btn.dataset.diff, false);
       });
     });
 
-    // Daily button
     el.btnDaily.addEventListener('click', playDaily);
 
-    // Action buttons
     el.btnHint.addEventListener('click', hint);
     el.btnCheck.addEventListener('click', check);
-    el.btnRestart.addEventListener('click', () => newGame(state.difficulty, state.isDaily));
+    el.btnRestart.addEventListener('click', () => newGame(state.difficulty, state.isDaily, state.isDaily ? getTodayStr() : null));
     el.btnUndo.addEventListener('click', undo);
     el.btnNotes.addEventListener('click', toggleNotes);
     el.btnErase.addEventListener('click', erase);
     el.btnNewLevel.addEventListener('click', newLevel);
 
-    // Numpad
     el.numpad.querySelectorAll('.num-btn').forEach(btn => {
-      btn.addEventListener('click', () => inputNumber(parseInt(btn.dataset.num)));
+      btn.addEventListener('click', () => inputNumber(parseInt(btn.dataset.num, 10)));
     });
 
-    // Modal close
     el.modalClose.addEventListener('click', closeModal);
     el.modal.addEventListener('click', e => {
       if (e.target === el.modal) closeModal();
     });
 
-    // Keyboard
     document.addEventListener('keydown', onKeyDown);
 
-    // Language buttons
     el.langBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         i18n.setLang(btn.dataset.lang);
         applyTranslations();
-        // Re-render diff label
         el.diffLabel.textContent = state.isDaily ? i18n.t('daily') : i18n.t(state.difficulty);
       });
     });
 
-    // Start first game
     newGame('medium', false);
   }
 
