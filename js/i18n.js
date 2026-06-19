@@ -1,5 +1,5 @@
 /**
- * i18n — Translations: Spanish, English, Portuguese
+ * i18n — Traducciones: Español, English, Português
  */
 
 const i18n = (() => {
@@ -16,13 +16,13 @@ const i18n = (() => {
       hard: 'Difícil',
       expert: 'Experto',
       hint: 'Pista',
-      check: 'Comprobar',
+      check: 'Ver',
       restart: 'Reiniciar',
       undo: 'Deshacer',
       notes: 'Notas',
       erase: 'Borrar',
       time: 'Tiempo',
-      hintsLeft: 'Pistas restantes',
+      hintsLeft: 'Pistas',
       mistakes: 'Errores',
       congratulations: '¡Felicidades!',
       solved: '¡Has completado el Sudoku!',
@@ -42,6 +42,10 @@ const i18n = (() => {
       hintsExhausted: 'Sin pistas disponibles',
       lang: 'Idioma',
       newLevel: 'Nuevo nivel',
+      board: 'Tablero de Sudoku',
+      noUndo: 'Nada que deshacer',
+      cellLocked: 'Esa celda no se puede editar',
+      genericError: 'Algo salió mal generando el puzzle. Probando de nuevo...',
     },
     en: {
       title: 'Sudoku',
@@ -60,7 +64,7 @@ const i18n = (() => {
       notes: 'Notes',
       erase: 'Erase',
       time: 'Time',
-      hintsLeft: 'Hints left',
+      hintsLeft: 'Hints',
       mistakes: 'Mistakes',
       congratulations: 'Congratulations!',
       solved: 'You solved the Sudoku!',
@@ -80,6 +84,10 @@ const i18n = (() => {
       hintsExhausted: 'No hints available',
       lang: 'Language',
       newLevel: 'New Level',
+      board: 'Sudoku board',
+      noUndo: 'Nothing to undo',
+      cellLocked: 'That cell cannot be edited',
+      genericError: 'Something went wrong generating the puzzle. Retrying...',
     },
     pt: {
       title: 'Sudoku',
@@ -98,7 +106,7 @@ const i18n = (() => {
       notes: 'Notas',
       erase: 'Apagar',
       time: 'Tempo',
-      hintsLeft: 'Dicas restantes',
+      hintsLeft: 'Dicas',
       mistakes: 'Erros',
       congratulations: 'Parabéns!',
       solved: 'Você resolveu o Sudoku!',
@@ -118,10 +126,36 @@ const i18n = (() => {
       hintsExhausted: 'Sem dicas disponíveis',
       lang: 'Idioma',
       newLevel: 'Novo nível',
+      board: 'Tabuleiro de Sudoku',
+      noUndo: 'Nada para desfazer',
+      cellLocked: 'Essa célula não pode ser editada',
+      genericError: 'Algo deu errado ao gerar o puzzle. Tentando novamente...',
     }
   };
 
-  let current = localStorage.getItem('sudoku_lang') || 'es';
+  // ── Acceso seguro a localStorage (Safari modo privado, cookies bloqueadas, etc.) ──
+  function safeGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* almacenamiento no disponible, seguimos sin persistir */ }
+  }
+
+  function detectBrowserLang() {
+    const supported = ['es', 'en', 'pt'];
+    const navLangs = (navigator.languages && navigator.languages.length)
+      ? navigator.languages
+      : [navigator.language || 'es'];
+
+    for (const l of navLangs) {
+      const code = l.slice(0, 2).toLowerCase();
+      if (supported.includes(code)) return code;
+    }
+    return 'es';
+  }
+
+  let current = safeGet('sudoku_lang') || detectBrowserLang();
+  if (!translations[current]) current = 'es';
 
   function t(key) {
     return (translations[current] && translations[current][key]) ||
@@ -131,7 +165,7 @@ const i18n = (() => {
   function setLang(lang) {
     if (translations[lang]) {
       current = lang;
-      localStorage.setItem('sudoku_lang', lang);
+      safeSet('sudoku_lang', lang);
     }
   }
 
@@ -145,6 +179,6 @@ const i18n = (() => {
     ];
   }
 
-  return { t, setLang, getLang, getAvailableLangs };
+  return { t, setLang, getLang, getAvailableLangs, safeGet, safeSet };
 
 })();
