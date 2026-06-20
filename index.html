@@ -11,9 +11,10 @@
   <meta property="og:description" content="Juega Sudoku online gratis. Generación infinita de puzzles." />
   <meta property="og:type" content="website" />
 
-  <title>Sudoku — Juega gratis online</title>
+  <title>Sudoku</title>
 
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3681470384705100" crossorigin="anonymous"></script>
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3681470384705100" crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -29,7 +30,6 @@
         <span class="logo-dot" aria-hidden="true"></span>
       </div>
       <div class="lang-selector" role="group" aria-label="Idioma / Language">
-        <button class="theme-toggle-btn" id="btn-theme" aria-label="Cambiar tema" title="Cambiar tema claro/oscuro">🌙</button>
         <button class="lang-btn" data-lang="es" aria-label="Español">ES</button>
         <button class="lang-btn" data-lang="en" aria-label="English">EN</button>
         <button class="lang-btn" data-lang="pt" aria-label="Português">PT</button>
@@ -61,7 +61,7 @@
         <button class="diff-btn" data-diff="expert" data-i18n="expert">Experto</button>
       </div>
       <button class="daily-btn" id="btn-daily" aria-label="Sudoku del día">
-        <span class="daily-icon" aria-hidden="true">☀️</span>
+        <span class="daily-icon">☀️</span>
         <span data-i18n="daily">Diario</span>
       </button>
     </div>
@@ -82,26 +82,30 @@
     </div>
 
     <!-- ── Action controls ──────────────────────────────────── -->
-    <div class="controls" role="toolbar" aria-label="Controles">
+    <div class="controls controls-6" role="toolbar" aria-label="Controles">
       <button class="ctrl-btn" id="btn-undo" aria-label="Deshacer">
-        <span class="btn-icon" aria-hidden="true">↩</span>
+        <span class="btn-icon">↩</span>
         <span data-i18n="undo">Deshacer</span>
       </button>
       <button class="ctrl-btn" id="btn-erase" aria-label="Borrar">
-        <span class="btn-icon" aria-hidden="true">⌫</span>
+        <span class="btn-icon">⌫</span>
         <span data-i18n="erase">Borrar</span>
       </button>
       <button class="ctrl-btn" id="btn-notes" aria-label="Notas" aria-pressed="false">
-        <span class="btn-icon" aria-hidden="true">✏️</span>
+        <span class="btn-icon">✏️</span>
         <span data-i18n="notes">Notas</span>
       </button>
       <button class="ctrl-btn" id="btn-hint" aria-label="Pista">
-        <span class="btn-icon" aria-hidden="true">💡</span>
+        <span class="btn-icon">💡</span>
         <span data-i18n="hint">Pista</span>
       </button>
       <button class="ctrl-btn" id="btn-check" aria-label="Comprobar">
-        <span class="btn-icon" aria-hidden="true">✓</span>
+        <span class="btn-icon">✓</span>
         <span data-i18n="check">Ver</span>
+      </button>
+      <button class="ctrl-btn" id="btn-stats" aria-label="Estadísticas">
+        <span class="btn-icon">📊</span>
+        <span data-i18n="statistics">Stats</span>
       </button>
     </div>
 
@@ -122,12 +126,12 @@
     <div class="bottom-actions">
       <button class="ctrl-btn btn-secondary" id="btn-restart"
         aria-label="Reiniciar partida">
-        <span class="btn-icon" aria-hidden="true">↺</span>
+        <span class="btn-icon">↺</span>
         <span data-i18n="restart">Reiniciar</span>
       </button>
       <button class="btn-new-level" id="btn-new-level"
         aria-label="Nuevo nivel">
-        <span class="new-level-icon" aria-hidden="true">▶</span>
+        <span class="new-level-icon">▶</span>
         <span data-i18n="newLevel">Nuevo nivel</span>
       </button>
     </div>
@@ -146,43 +150,21 @@
     </div>
   </div>
 
-  <!-- ══ Ad Banner ═══════════════════════════════════════════
-       INSTRUCCIONES PARA ACTIVAR EL ANUNCIO:
 
-       1. Ve a https://adsense.google.com y crea una cuenta
-          (usa la misma cuenta de Google que usas con AdMob)
-       2. Añade tu sitio web (ej: tuusuario.github.io/sudoku)
-       3. Google te dará un Publisher ID con formato: ca-pub-1234567890123456
-       4. Crea un anuncio de tipo "Banner horizontal" y copia el Ad Slot ID
-       5. Descomenta el bloque <ins> de abajo y reemplaza:
-            ca-pub-XXXXXXXXXXXXXXXXXX  →  tu Publisher ID
-            XXXXXXXXXX                →  tu Ad Slot ID
-       6. Descomenta también el <script> del <head>
-
-       NOTA: AdSense y AdMob son el mismo Google. Puedes vincular
-       las cuentas desde la consola de AdSense en Cuentas > Acceso y autorización.
-  ═══════════════════════════════════════════════════════════ -->
+  <!-- ══ Ad Banner ═══════════════════════════════════════════ -->
   <aside class="ad-banner" aria-label="Publicidad">
     <div class="ad-inner">
 
-      <!-- ▼▼▼ DESCOMENTA ESTO cuando tengas tu ID de AdSense ▼▼▼
-
+      <!-- Anuncio AdSense activo.
+           Cuando tengas el Ad Slot ID, reemplaza XXXXXXXXXX -->
       <ins class="adsbygoogle"
            style="display:block; width:100%; height:60px;"
-           data-ad-client="ca-pub-XXXXXXXXXXXXXXXXXX"
+           data-ad-client="ca-pub-3681470384705100"
            data-ad-slot="XXXXXXXXXX"
            data-ad-format="horizontal"
            data-full-width-responsive="true">
       </ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-
-      ▲▲▲ FIN DEL BLOQUE DE ANUNCIO ▲▲▲ -->
-
-      <!-- Placeholder visible mientras no hay anuncio activo
-           (puedes eliminar este div cuando actives AdSense) -->
-      <div class="ad-placeholder">
-        <span>Publicidad</span>
-      </div>
 
     </div>
   </aside>
@@ -190,6 +172,7 @@
   <!-- ══ Scripts ══════════════════════════════════════════════ -->
   <script src="js/i18n.js"></script>
   <script src="js/sudoku-engine.js"></script>
+  <script src="js/stats.js"></script>
   <script src="js/game.js"></script>
 
 </body>
