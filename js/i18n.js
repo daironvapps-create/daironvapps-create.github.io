@@ -1,5 +1,5 @@
 /**
- * i18n — Traducciones: Español, English, Português
+ * i18n — Translations: Spanish, English, Portuguese
  */
 
 const i18n = (() => {
@@ -16,13 +16,13 @@ const i18n = (() => {
       hard: 'Difícil',
       expert: 'Experto',
       hint: 'Pista',
-      check: 'Ver',
+      check: 'Comprobar',
       restart: 'Reiniciar',
       undo: 'Deshacer',
       notes: 'Notas',
       erase: 'Borrar',
       time: 'Tiempo',
-      hintsLeft: 'Pistas',
+      hintsLeft: 'Pistas restantes',
       mistakes: 'Errores',
       congratulations: '¡Felicidades!',
       solved: '¡Has completado el Sudoku!',
@@ -42,10 +42,16 @@ const i18n = (() => {
       hintsExhausted: 'Sin pistas disponibles',
       lang: 'Idioma',
       newLevel: 'Nuevo nivel',
-      board: 'Tablero de Sudoku',
-      noUndo: 'Nada que deshacer',
-      cellLocked: 'Esa celda no se puede editar',
-      genericError: 'Algo salió mal generando el puzzle. Probando de nuevo...',
+      statistics: 'Estadísticas',
+      myStats: 'Mis estadísticas',
+      globalRanking: 'Ranking global',
+      best: 'Mejor',
+      avg: 'Media',
+      enterNickname: '¿Quieres entrar al ranking global?',
+      nickPlaceholder: 'Tu apodo (máx. 16 caracteres)',
+      submitRanking: 'Enviar al ranking',
+      skipRanking: 'No, gracias',
+      noRankingYet: 'Sé el primero en el ranking',
     },
     en: {
       title: 'Sudoku',
@@ -64,7 +70,7 @@ const i18n = (() => {
       notes: 'Notes',
       erase: 'Erase',
       time: 'Time',
-      hintsLeft: 'Hints',
+      hintsLeft: 'Hints left',
       mistakes: 'Mistakes',
       congratulations: 'Congratulations!',
       solved: 'You solved the Sudoku!',
@@ -84,10 +90,16 @@ const i18n = (() => {
       hintsExhausted: 'No hints available',
       lang: 'Language',
       newLevel: 'New Level',
-      board: 'Sudoku board',
-      noUndo: 'Nothing to undo',
-      cellLocked: 'That cell cannot be edited',
-      genericError: 'Something went wrong generating the puzzle. Retrying...',
+      statistics: 'Statistics',
+      myStats: 'My Stats',
+      globalRanking: 'Global Ranking',
+      best: 'Best',
+      avg: 'Avg',
+      enterNickname: 'Want to enter the global ranking?',
+      nickPlaceholder: 'Your nickname (max 16 chars)',
+      submitRanking: 'Submit to ranking',
+      skipRanking: 'No thanks',
+      noRankingYet: 'Be the first on the ranking',
     },
     pt: {
       title: 'Sudoku',
@@ -106,7 +118,7 @@ const i18n = (() => {
       notes: 'Notas',
       erase: 'Apagar',
       time: 'Tempo',
-      hintsLeft: 'Dicas',
+      hintsLeft: 'Dicas restantes',
       mistakes: 'Erros',
       congratulations: 'Parabéns!',
       solved: 'Você resolveu o Sudoku!',
@@ -126,36 +138,20 @@ const i18n = (() => {
       hintsExhausted: 'Sem dicas disponíveis',
       lang: 'Idioma',
       newLevel: 'Novo nível',
-      board: 'Tabuleiro de Sudoku',
-      noUndo: 'Nada para desfazer',
-      cellLocked: 'Essa célula não pode ser editada',
-      genericError: 'Algo deu errado ao gerar o puzzle. Tentando novamente...',
+      statistics: 'Estatísticas',
+      myStats: 'Minhas estatísticas',
+      globalRanking: 'Ranking global',
+      best: 'Melhor',
+      avg: 'Média',
+      enterNickname: 'Quer entrar no ranking global?',
+      nickPlaceholder: 'Seu apelido (máx. 16 caracteres)',
+      submitRanking: 'Enviar ao ranking',
+      skipRanking: 'Não, obrigado',
+      noRankingYet: 'Seja o primeiro no ranking',
     }
   };
 
-  // ── Acceso seguro a localStorage (Safari modo privado, cookies bloqueadas, etc.) ──
-  function safeGet(key) {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
-  }
-  function safeSet(key, value) {
-    try { localStorage.setItem(key, value); } catch (e) { /* almacenamiento no disponible, seguimos sin persistir */ }
-  }
-
-  function detectBrowserLang() {
-    const supported = ['es', 'en', 'pt'];
-    const navLangs = (navigator.languages && navigator.languages.length)
-      ? navigator.languages
-      : [navigator.language || 'es'];
-
-    for (const l of navLangs) {
-      const code = l.slice(0, 2).toLowerCase();
-      if (supported.includes(code)) return code;
-    }
-    return 'es';
-  }
-
-  let current = safeGet('sudoku_lang') || detectBrowserLang();
-  if (!translations[current]) current = 'es';
+  let current = localStorage.getItem('sudoku_lang') || 'es';
 
   function t(key) {
     return (translations[current] && translations[current][key]) ||
@@ -165,7 +161,7 @@ const i18n = (() => {
   function setLang(lang) {
     if (translations[lang]) {
       current = lang;
-      safeSet('sudoku_lang', lang);
+      localStorage.setItem('sudoku_lang', lang);
     }
   }
 
@@ -179,6 +175,6 @@ const i18n = (() => {
     ];
   }
 
-  return { t, setLang, getLang, getAvailableLangs, safeGet, safeSet };
+  return { t, setLang, getLang, getAvailableLangs };
 
 })();
