@@ -37,11 +37,11 @@ const Game = (() => {
     el.hintsLeft   = document.getElementById('hints-left');
     el.mistakes    = document.getElementById('mistakes-count');
     el.btnHint     = document.getElementById('btn-hint');
-    el.btnCheck    = document.getElementById('btn-check');
+
     el.btnRestart  = document.getElementById('btn-restart');
     el.btnUndo     = document.getElementById('btn-undo');
     el.btnNotes    = document.getElementById('btn-notes');
-    el.btnErase    = document.getElementById('btn-erase');
+
     el.diffBtns    = document.querySelectorAll('.diff-btn');
     el.btnDaily    = document.getElementById('btn-daily');
     el.modal       = document.getElementById('modal');
@@ -597,11 +597,9 @@ const Game = (() => {
 
     // Action buttons
     el.btnHint.addEventListener('click', hint);
-    el.btnCheck.addEventListener('click', check);
     el.btnRestart.addEventListener('click', () => newGame(state.difficulty, state.isDaily));
     el.btnUndo.addEventListener('click', undo);
     el.btnNotes.addEventListener('click', toggleNotes);
-    el.btnErase.addEventListener('click', erase);
     el.btnNewLevel.addEventListener('click', newLevel);
     el.btnStats.addEventListener('click', () => StatsSystem.openStatsModal(state.difficulty));
 
