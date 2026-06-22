@@ -571,8 +571,8 @@ const Game = (() => {
   // ── i18n refresh ──────────────────────────────────────────────────────────
 
   function applyTranslations() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      el.textContent = i18n.t(el.dataset.i18n);
+    document.querySelectorAll('[data-i18n]').forEach(node => {
+      node.textContent = i18n.t(node.dataset.i18n);
     });
     el.langBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.lang === i18n.getLang());
