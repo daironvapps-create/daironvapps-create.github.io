@@ -54,6 +54,7 @@ const Game = (() => {
     el.diffLabel   = document.getElementById('diff-label');
     el.btnNewLevel = document.getElementById('btn-new-level');
     el.btnStats    = document.getElementById('btn-stats');
+    el.btnAutocomplete = document.getElementById('btn-autocomplete');
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -203,7 +204,7 @@ const Game = (() => {
       (state.board[row][col] !== 0 && state.board[row][col] === state.solution[row][col]);
   }
 
-  // ── Autocomplete (when ≤6 cells remain empty) ─────────────────────────────
+  // ── Autocomplete manual (botón) ───────────────────────────────────────────
 
   function countEmpty() {
     let count = 0;
@@ -213,28 +214,55 @@ const Game = (() => {
     return count;
   }
 
-  function tryAutocomplete() {
-    const empty = countEmpty();
-    if (empty > 0 && empty <= 6) {
-      // Animate autocomplete
-      let delay = 0;
-      for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-          if (state.board[r][c] === 0) {
-            const row = r, col = c;
-            setTimeout(() => {
-              state.board[row][col] = state.solution[row][col];
-              state.notes[row][col].clear();
-              refreshAllCells();
-              if (SudokuEngine.isSolved(state.board, state.solution)) {
-                endGame(true);
-              }
-            }, delay);
-            delay += 120;
-          }
+  function doAutocomplete() {
+    if (state.finished) return;
+    let delay = 0;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (state.board[r][c] === 0) {
+          const row = r, col = c;
+          setTimeout(() => {
+            state.board[row][col] = state.solution[row][col];
+            state.notes[row][col].clear();
+            refreshAllCells();
+            updateNumpad();
+            if (SudokuEngine.isSolved(state.board, state.solution)) {
+              endGame(true);
+            }
+          }, delay);
+          delay += 120;
         }
       }
     }
+  }
+
+  function checkAutocompleteBtn() {
+    const empty = countEmpty();
+    if (el.btnAutocomplete) {
+      el.btnAutocomplete.style.display = (empty > 0 && empty <= 6) ? 'flex' : 'none';
+    }
+  }
+
+  // ── Numpad — ocultar números completos ────────────────────────────────────
+
+  function updateNumpad() {
+    // Cuenta cuántas veces aparece cada número correctamente en el tablero
+    const count = new Array(10).fill(0);
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (state.board[r][c] !== 0 && state.board[r][c] === state.solution[r][c])
+          count[state.board[r][c]]++;
+
+    el.numpad.querySelectorAll('.num-btn').forEach(btn => {
+      const n = parseInt(btn.dataset.num);
+      if (count[n] >= 9) {
+        btn.classList.add('num-complete');
+        btn.disabled = true;
+      } else {
+        btn.classList.remove('num-complete');
+        btn.disabled = false;
+      }
+    });
   }
 
   // ── Input handling ────────────────────────────────────────────────────────
@@ -281,14 +309,13 @@ const Game = (() => {
     }
 
     refreshAllCells();
+    updateNumpad();
+    checkAutocompleteBtn();
 
     if (SudokuEngine.isSolved(state.board, state.solution)) {
       endGame(true);
       return;
     }
-
-    // Autocomplete if ≤6 empty cells remain
-    tryAutocomplete();
   }
 
   function erase() {
@@ -318,6 +345,8 @@ const Game = (() => {
     state.board = prev.board;
     state.notes = prev.notes;
     refreshAllCells();
+    updateNumpad();
+    checkAutocompleteBtn();
   }
 
   // ── Hint ──────────────────────────────────────────────────────────────────
@@ -333,6 +362,8 @@ const Game = (() => {
     state.notes[h.row][h.col].clear();
     state.selected = { row: h.row, col: h.col };
     refreshAllCells();
+    updateNumpad();
+    checkAutocompleteBtn();
 
     if (state.hintsUsed >= state.maxHints) {
       el.btnHint.disabled = true;
@@ -486,6 +517,8 @@ const Game = (() => {
       el.diffLabel.textContent = isDaily ? i18n.t('daily') : i18n.t(difficulty);
 
       renderBoard();
+      updateNumpad();
+      checkAutocompleteBtn();
       showLoading(false);
     }, 50);
   }
@@ -600,6 +633,9 @@ const Game = (() => {
     el.btnNotes.addEventListener('click', toggleNotes);
     el.btnNewLevel.addEventListener('click', newLevel);
     el.btnStats.addEventListener('click', () => StatsSystem.openStatsModal(state.difficulty));
+    if (el.btnAutocomplete) {
+      el.btnAutocomplete.addEventListener('click', doAutocomplete);
+    }
 
     // Numpad
     el.numpad.querySelectorAll('.num-btn').forEach(btn => {
