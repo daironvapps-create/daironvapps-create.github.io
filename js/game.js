@@ -37,11 +37,9 @@ const Game = (() => {
     el.hintsLeft   = document.getElementById('hints-left');
     el.mistakes    = document.getElementById('mistakes-count');
     el.btnHint     = document.getElementById('btn-hint');
-
     el.btnRestart  = document.getElementById('btn-restart');
     el.btnUndo     = document.getElementById('btn-undo');
     el.btnNotes    = document.getElementById('btn-notes');
-
     el.diffBtns    = document.querySelectorAll('.diff-btn');
     el.btnDaily    = document.getElementById('btn-daily');
     el.modal       = document.getElementById('modal');
