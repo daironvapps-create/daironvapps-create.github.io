@@ -10,7 +10,7 @@ const StatsSystem = (() => {
   // JSONBin.io — servicio gratuito de almacenamiento JSON
   // El BIN_ID se crea automáticamente la primera vez
   const JSONBIN_API = 'https://api.jsonbin.io/v3';
-  const JSONBIN_KEY = '$2a$10$placeholder'; // se reemplaza al crear el bin
+  const JSONBIN_KEY = '$2a$10$7xly724CTtaQLmm1BS3kJe2pdM3oRRtw3fX7NTxgqNL8Qbutc7TUW';
   let BIN_ID = localStorage.getItem('sudoku_bin_id') || null;
 
   // ── Estadísticas personales ───────────────────────────────────────────────
@@ -79,6 +79,7 @@ const StatsSystem = (() => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_KEY,
             'X-Bin-Name': 'sudoku-ranking',
             'X-Bin-Private': 'false',
           },
@@ -93,7 +94,9 @@ const StatsSystem = (() => {
       }
 
       // Leer ranking actual
-      const getRes = await fetch(`${JSONBIN_API}/b/${BIN_ID}/latest`);
+      const getRes = await fetch(`${JSONBIN_API}/b/${BIN_ID}/latest`, {
+        headers: { 'X-Master-Key': JSONBIN_KEY },
+      });
       if (!getRes.ok) return false;
       const current = await getRes.json();
       const scores = current.record.scores || [];
@@ -105,7 +108,10 @@ const StatsSystem = (() => {
       const trimmed = scores.slice(-500);
       await fetch(`${JSONBIN_API}/b/${BIN_ID}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': JSONBIN_KEY,
+        },
         body: JSON.stringify({ scores: trimmed }),
       });
       return true;
@@ -117,7 +123,9 @@ const StatsSystem = (() => {
   async function fetchRanking(difficulty, limit = 10) {
     if (!BIN_ID) return [];
     try {
-      const res = await fetch(`${JSONBIN_API}/b/${BIN_ID}/latest`);
+      const res = await fetch(`${JSONBIN_API}/b/${BIN_ID}/latest`, {
+        headers: { 'X-Master-Key': JSONBIN_KEY },
+      });
       if (!res.ok) return [];
       const data = await res.json();
       const scores = (data.record.scores || [])
