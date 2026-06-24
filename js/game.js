@@ -9,10 +9,10 @@ const Game = (() => {
   let state = {
     puzzle: null,
     solution: null,
-    board: null,          // current player board (numbers)
-    notes: null,          // 9×9 array of Set()
-    given: null,          // boolean 9×9 — original clues
-    selected: null,       // {row, col}
+    board: null,
+    notes: null,
+    given: null,
+    selected: null,
     difficulty: 'medium',
     isDaily: false,
     hintsUsed: 0,
@@ -20,8 +20,9 @@ const Game = (() => {
     mistakes: 0,
     maxMistakes: 3,
     notesMode: false,
-    history: [],          // for undo
+    history: [],
     timerInterval: null,
+    autoStartTimeout: null,
     elapsedSeconds: 0,
     started: false,
     finished: false,
@@ -480,6 +481,7 @@ const Game = (() => {
     // Defer to next tick so loading overlay renders
     setTimeout(() => {
       stopTimer();
+      clearTimeout(state.autoStartTimeout);
 
       const result = isDaily
         ? SudokuEngine.generateDailyPuzzle(getTodayStr())
@@ -520,6 +522,15 @@ const Game = (() => {
       updateNumpad();
       checkAutocompleteBtn();
       showLoading(false);
+
+      // Arrancar el timer automáticamente a los 5 segundos
+      clearTimeout(state.autoStartTimeout);
+      state.autoStartTimeout = setTimeout(() => {
+        if (!state.started && !state.finished) {
+          state.started = true;
+          startTimer();
+        }
+      }, 5000);
     }, 50);
   }
 
