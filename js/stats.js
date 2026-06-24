@@ -10,7 +10,7 @@ const StatsSystem = (() => {
   // JSONBin.io — servicio gratuito de almacenamiento JSON
   // El BIN_ID se crea automáticamente la primera vez
   const JSONBIN_API = 'https://api.jsonbin.io/v3';
-  const JSONBIN_KEY = '$2a$10$7xly724CTtaQLmm1BS3kJe2pdM3oRRtw3fX7NTxgqNL8Qbutc7TUW';
+  const JSONBIN_KEY = '$2a$10$mVvY0PawHA/ECNf5CU43yuGhqr1eBwQd2tgkQ2JwuHVUUagf.4Zci';
   let BIN_ID = localStorage.getItem('sudoku_bin_id') || null;
 
   // ── Estadísticas personales ───────────────────────────────────────────────
