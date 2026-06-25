@@ -11,7 +11,7 @@ const StatsSystem = (() => {
   // El BIN_ID se crea automáticamente la primera vez
   const JSONBIN_API = 'https://api.jsonbin.io/v3';
   const JSONBIN_KEY = '$2a$10$mVvY0PawHA/ECNf5CU43yuGhqr1eBwQd2tgkQ2JwuHVUUagf.4Zci';
-  let BIN_ID = localStorage.getItem('sudoku_bin_id') || null;
+  const BIN_ID = '6a3c5b4df5f4af5e292b88eb'; // Bin compartido global
 
   // ── Estadísticas personales ───────────────────────────────────────────────
 
@@ -73,26 +73,6 @@ const StatsSystem = (() => {
     };
 
     try {
-      if (!BIN_ID) {
-        // Crear bin la primera vez
-        const res = await fetch(`${JSONBIN_API}/b`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_KEY,
-            'X-Bin-Name': 'sudoku-ranking',
-            'X-Bin-Private': 'false',
-          },
-          body: JSON.stringify({ scores: [entry] }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          BIN_ID = data.metadata.id;
-          localStorage.setItem('sudoku_bin_id', BIN_ID);
-        }
-        return true;
-      }
-
       // Leer ranking actual
       const getRes = await fetch(`${JSONBIN_API}/b/${BIN_ID}/latest`, {
         headers: { 'X-Master-Key': JSONBIN_KEY },
@@ -101,11 +81,9 @@ const StatsSystem = (() => {
       const current = await getRes.json();
       const scores = current.record.scores || [];
 
-      // Añadir nueva entrada
       scores.push(entry);
-
-      // Guardar (máx 500 entradas para no pasarse del límite gratuito)
       const trimmed = scores.slice(-500);
+
       await fetch(`${JSONBIN_API}/b/${BIN_ID}`, {
         method: 'PUT',
         headers: {
